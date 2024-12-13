@@ -5,7 +5,14 @@ import seaborn as sns
 sns.set(style='dark')
 
 def create_category(category_df):
-    dataset_filtered = category_df.groupby(by="product_category_name").customer_id.nunique().sort_values(ascending=False).reset_index().copy()
+    items_df = pd.read_csv("items_cleaned.csv")
+    products_df = pd.read_csv("products_cleaned.csv")
+
+    dataset_join_1 = pd.merge(category_df, items_df, on='order_id')
+    dataset_join_2 = pd.merge(dataset_join_1, products_df, on='product_id')
+    dataset_joined = dataset_join_2.copy()
+    
+    dataset_filtered = dataset_joined.groupby(by="product_category_name").customer_id.nunique().sort_values(ascending=False).reset_index().copy()
     dataset_filtered.columns = ["product_category_name", "count"]
     dataset_filtered = dataset_filtered.head(10)
     category = dataset_filtered.sort_values(by='count', ascending=False).copy()
@@ -19,9 +26,7 @@ def create_status(status_df):
     return status
 
 
-category_df = pd.read_csv("dataset_category.csv")
-status_df = pd.read_csv("dataset_status.csv")
-all_df = pd.read_csv("dataset_joined.csv", parse_dates=["order_purchase_timestamp"])
+all_df = pd.read_csv("orders_cleaned.csv", parse_dates=["order_purchase_timestamp"])
 
 min_date = all_df["order_purchase_timestamp"].min()
 max_date = all_df["order_purchase_timestamp"].max()

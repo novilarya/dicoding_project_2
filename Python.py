@@ -8,8 +8,8 @@ def create_category(category_df):
     items_df = pd.read_csv("items_cleaned.csv")
     products_df = pd.read_csv("products_cleaned.csv")
 
-    dataset_join_1 = pd.merge(category_df, items_df, on='order_id')
-    dataset_join_2 = pd.merge(dataset_join_1, products_df, on='product_id')
+    dataset_join_1 = pd.merge(category_df, items_df, on='order_id', how='left')
+    dataset_join_2 = pd.merge(dataset_join_1, products_df, on='product_id', how='left')
     dataset_joined = dataset_join_2.copy()
     
     dataset_filtered = dataset_joined.groupby(by="product_category_name").customer_id.nunique().sort_values(ascending=False).reset_index().copy()
@@ -19,28 +19,35 @@ def create_category(category_df):
     return category
 
 def create_status(status_df):
-    status_filtered = status_df.groupby(by="order_status").customer_id.nunique().sort_values(ascending=True).reset_index().copy()
+    status_filtered = status_df.groupby(by="order_status", dropna=False).customer_id.nunique().sort_values(ascending=True).reset_index().copy()
     status_filtered.columns = ["order_status", "count"]
     status = status_filtered.sort_values(by='count', ascending=False).copy()
     status = status.reset_index(drop=True)
     return status
 
 
-all_df = pd.read_csv("orders_cleaned.csv", parse_dates=["order_purchase_timestamp"])
+all_df = pd.read_csv("orders_cleaned.csv")
+all_df['order_purchase_timestamp'] = pd.to_datetime(all_df['order_purchase_timestamp'], errors='coerce')
 
-min_date = all_df["order_purchase_timestamp"].min()
-max_date = all_df["order_purchase_timestamp"].max()
+valid_df = all_df.dropna(subset=['order_purchase_timestamp'])
+missing_df = all_df[all_df['order_purchase_timestamp'].isna()]
+
+min_date = valid_df["order_purchase_timestamp"].min().date()
+max_date = valid_df["order_purchase_timestamp"].max().date()
 
 with st.sidebar:
     start_date, end_date = st.date_input(
         label='Rentang Waktu',
         min_value=min_date,
         max_value=max_date,
-        value=[min_date,max_date]
+        value=[min_date, max_date]
     )
 
-main_df = all_df[(all_df["order_purchase_timestamp"] >= str(start_date)) & (all_df["order_purchase_timestamp"] <= str(end_date))]
+main_df = valid_df[
+    (valid_df["order_purchase_timestamp"] >= pd.to_datetime(start_date)) & (valid_df["order_purchase_timestamp"] <= pd.to_datetime(end_date))
+]
 
+main_df = pd.concat([main_df], ignore_index=True)
 
 st.header('Proyek Analisis Data : Order Dashboard')
 
@@ -70,9 +77,9 @@ ax.set_ylabel("Kategori Produk")
 ax.set_title("Jumlah Pembelian Tiap Kategori Produk")
 st.pyplot(fig)
 
-st.subheader('Diagram Seberapa Banyak Status Pesanan Produk')
+st.subheader('Diagram Seberapa Banyak Status Pesanan Produk dengan Rentang Waktu 2016-2018')
 fig, ax = plt.subplots(figsize=(8, 5))
-status_data = create_status(main_df)
+status_data = create_status(all_df)
 sns.barplot(
     x='count',
     y='order_status',
@@ -93,6 +100,6 @@ for i in range(len(status_data)):
     )
 ax.set_xlabel("Jumlah")
 ax.set_ylabel("Status Produk")
-ax.set_title("Jumlah dari Setiap Status Pesanan Produk")
+ax.set_title("Jumlah dari Setiap Status Pesanan Produk Tahun 2016-2018")
 st.pyplot(fig)
 
